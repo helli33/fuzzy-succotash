@@ -9,7 +9,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +44,7 @@ jobs:
           {
             "artifact_id": ${ARTIFACT_ID},
             "pages_build_version": "${GITHUB_SHA}",
-            "environment": "production",
+            "environment": "github-pages",
             "oidc_token": "${OIDC}"
           }
           
