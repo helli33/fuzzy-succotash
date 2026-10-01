@@ -1,0 +1,50 @@
+name: manual-pages-deploy
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build a site and tar it
+        run: |
+          mkdir -p _site && echo "<h1>hi</h1>" > _site/index.html
+          tar --dereference --hard-dereference -cvf artifact.tar -C _site .
+
+      - uses: actions/upload-artifact@v4
+        id: up
+        with:
+          name: github-pages
+          path: artifact.tar
+          retention-days: 1
+
+      - name: Deploy via REST
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.up.outputs.artifact-id }}
+        run: |
+          OIDC=$(curl -sS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://github.com/${GITHUB_REPOSITORY_OWNER}" \
+            | jq -r .value)
+
+          curl -sS -i -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/deployments" \
+            -d @- <<EOF
+          {
+            "artifact_id": ${ARTIFACT_ID},
+            "pages_build_version": "${GITHUB_SHA}",
+            "environment": "production",
+            "oidc_token": "${OIDC}"
+          }
+          
